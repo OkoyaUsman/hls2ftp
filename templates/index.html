@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HLS Stream Setup</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .form-control {
+            border-radius: 10px;
+        }
+        .btn-primary {
+            border-radius: 10px;
+            padding: 10px 25px;
+        }
+        .status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        .status-active {
+            background-color: #28a745;
+        }
+        .status-inactive {
+            background-color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">HLS Stream Setup</h4>
+                    </div>
+                    <div class="card-body">
+                        <form id="streamForm">
+                            <div class="mb-3">
+                                <label for="m3u8Url" class="form-label">HLS Stream URL (m3u8)</label>
+                                <input type="url" class="form-control" id="m3u8Url" required 
+                                       placeholder="https://example.com/stream.m3u8">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="ftpHost" class="form-label">FTP Host</label>
+                                <input type="text" class="form-control" id="ftpHost" required 
+                                       placeholder="ftp.example.com">
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="ftpUser" class="form-label">FTP Username</label>
+                                <input type="text" class="form-control" id="ftpUser" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="ftpPass" class="form-label">FTP Password</label>
+                                <input type="password" class="form-control" id="ftpPass" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="ftpPath" class="form-label">FTP Path</label>
+                                <input type="text" class="form-control" id="ftpPath" required 
+                                       placeholder="/path/to/stream">
+                            </div>
+                            
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary">Start Stream</button>
+                            </div>
+                        </form>
+                        
+                        <div class="mt-4" id="statusContainer" style="display: none;">
+                            <div class="alert alert-info">
+                                <span class="status-indicator status-active"></span>
+                                <span id="statusText">Stream is active</span>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-danger" id="stopStream">Stop Stream</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentStreamId = null;
+
+        document.getElementById('streamForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                m3u8_url: document.getElementById('m3u8Url').value,
+                ftp_host: document.getElementById('ftpHost').value,
+                ftp_user: document.getElementById('ftpUser').value,
+                ftp_pass: document.getElementById('ftpPass').value,
+                ftp_path: document.getElementById('ftpPath').value
+            };
+            
+            try {
+                const response = await fetch('/start_stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    currentStreamId = data.stream_id;
+                    document.getElementById('streamForm').style.display = 'none';
+                    document.getElementById('statusContainer').style.display = 'block';
+                    document.getElementById('statusText').textContent = 'Stream is active';
+                    document.querySelector('.status-indicator').classList.remove('status-inactive');
+                    document.querySelector('.status-indicator').classList.add('status-active');
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error starting stream: ' + error.message);
+            }
+        });
+        
+        document.getElementById('stopStream').addEventListener('click', async () => {
+            if (!currentStreamId) {
+                alert('No active stream to stop');
+                return;
+            }
+
+            try {
+                const response = await fetch('/stop_stream', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ stream_id: currentStreamId })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('streamForm').style.display = 'block';
+                    document.getElementById('statusContainer').style.display = 'none';
+                    currentStreamId = null;
+                    
+                    // Reset form
+                    document.getElementById('streamForm').reset();
+                } else {
+                    const error = await response.json();
+                    alert('Error: ' + error.error);
+                }
+            } catch (error) {
+                alert('Error stopping stream: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html> 
